@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+
+{% block title %}Raporty{% endblock %}
+
+{% block h1 %}Raporty rezerwacji{% endblock %}
+{% block subtitle %}Pobierz raport PDF dla wybranego zakresu dat{% endblock %}
+
+{% block content %}
+<div class="grid" id="reports-app">
+
+  <div id="admin-guard" class="error" style="display:none">
+    Ta sekcja jest dostępna tylko dla administratorów.
+  </div>
+
+  {% comment %} <form id="report-form" class="grid" style="gap:16px"> {% endcomment %}
+  <form id="report-form" class="grid" style="gap:16px;display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label for="date_from">Data od</label>
+        <input id="date_from" type="date" class="input" required />
+      </div>
+      <div>
+        <label for="date_to">Data do</label>
+        <input id="date_to" type="date" class="input" required />
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn" data-preset="today">Dziś</button>
+      <button type="button" class="btn" data-preset="last7">Ostatnie 7 dni</button>
+      <button type="button" class="btn" data-preset="thisMonth">Ten miesiąc</button>
+    </div>
+
+    <div id="msg-error" class="error"></div>
+    <div id="msg-ok" class="ok"></div>
+
+    <div style="display:flex;gap:10px;align-items:center">
+      <button id="btn-open" type="submit" class="btn">Otwórz PDF</button>
+      <button id="btn-download" type="button" class="btn">Pobierz PDF</button>
+      <span class="muted">Raport zawiera wszystkie rezerwacje w danym zakresie.</span>
+    </div>
+  </form>
+</div>
+
+<script>
+
+(function(){
+  const API = window.API_BASE || "http://127.0.0.1:8000";
+  const msgErr = document.getElementById('msg-error');
+  const msgOk  = document.getElementById('msg-ok');
+  const frm    = document.getElementById('report-form');
+
+  const inputFrom = document.getElementById('date_from');
+  const inputTo   = document.getElementById('date_to');
+
+  function show(el, t){ el.textContent = t; el.style.display = 'block'; }
+  function hide(el){ el.textContent = ''; el.style.display = 'none'; }
+
+
+  // Szybkie zakresy
+  function fmt(d){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
+  function setPreset(type){
+    const today = new Date();
+    let from = new Date(today), to = new Date(today);
+    if(type==='today'){
+      // zostaje today–today
+    }else if(type==='last7'){
+      from.setDate(today.getDate()-6);
+    }else if(type==='thisMonth'){
+      from = new Date(today.getFullYear(), today.getMonth(), 1);
+      to   = new Date(today.getFullYear(), today.getMonth()+1, 0);
+    }
+    inputFrom.value = fmt(from);
+    inputTo.value   = fmt(to);
+  }
+
+  document.querySelectorAll('[data-preset]').forEach(b=>{
+    b.addEventListener('click', ()=> setPreset(b.dataset.preset));
+  });
+
+  // Sprawdzenie uprawnień admina (role_id = 3).
+  // Używamy /users/me — jeśli 403/401, ukrywamy formularz.
+  async function guardAdmin(){
+    const token = getToken();
+    if(!token){ document.getElementById('admin-guard').style.display='block'; return; }
+    try{
+      const r = await fetch(`${API}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if(!r.ok) throw new Error('unauth');
+      const me = await r.json();
+      if(me.role_id !== 3){
+        document.getElementById('admin-guard').style.display='block';
+        return;
+      }
+      frm.style.display='grid';
+      // domyślnie ustaw "ten miesiąc"
+      setPreset('thisMonth');
+    }catch{
+      document.getElementById('admin-guard').style.display='block';
+    }
+  console.log("Reports.js startuje…");
+  }
+
+  guardAdmin();
+
+  function validateDates(){
+    hide(msgErr); hide(msgOk);
+    const df = inputFrom.value, dt = inputTo.value;
+    if(!df || !dt){ show(msgErr, 'Uzupełnij obie daty'); return false; }
+    if(df > dt){ show(msgErr, 'Data od nie może być późniejsza niż data do'); return false; }
+    return true;
+  }
+
+  // Wspólna funkcja fetchująca PDF (jako blob)
+  async function fetchPdfBlob(){
+    const token = getToken();
+    const df = inputFrom.value, dt = inputTo.value;
+    const url = `${API}/reports/reports/reservations.pdf?date_from=${encodeURIComponent(df)}&date_to=${encodeURIComponent(dt)}`;
+    const r = await fetch(url, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Accept': 'application/pdf'
+      }
+    });
+    if(!r.ok){
+      let msg = `Błąd ${r.status}`;
+      try{
+        const j = await r.json();
+        if(j?.detail) msg += `: ${Array.isArray(j.detail)? j.detail.map(d=>d.msg).join(', ') : j.detail}`;
+      }catch{}
+      throw new Error(msg);
+    }
+    return await r.blob();
+  }
+
+  // Otwórz w nowej karcie
+  frm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    hide(msgErr); hide(msgOk);
+    if(!validateDates()) return;
+
+    const btn = document.getElementById('btn-open'); btn.disabled = true;
+    try{
+      const blob = await fetchPdfBlob();
+      const url  = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      show(msgOk, 'Raport otwarto w nowej karcie');
+      setTimeout(()=> hide(msgOk), 2500);
+    }catch(err){
+      show(msgErr, 'Nie udało się pobrać raportu: '+ err.message);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  // Pobierz jako plik
+  document.getElementById('btn-download').addEventListener('click', async ()=>{
+    hide(msgErr); hide(msgOk);
+    if(!validateDates()) return;
+
+    const btn = document.getElementById('btn-download'); btn.disabled = true;
+    try{
+      const blob = await fetchPdfBlob();
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `raport_rezerwacji_${inputFrom.value}_${inputTo.value}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      show(msgOk, 'Rozpoczęto pobieranie…');
+      setTimeout(()=> hide(msgOk), 2500);
+    }catch(err){
+      show(msgErr, 'Nie udało się pobrać raportu: '+ err.message);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+})();
+
+</script>
+{% endblock %}

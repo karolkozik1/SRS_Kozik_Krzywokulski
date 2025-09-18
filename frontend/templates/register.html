@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Rejestracja{% endblock %}
+
+{% block content %}
+<section class="page page-auth">
+  <div class="card card--auth">
+    <h1 class="card__title">Utwórz konto</h1>
+    <p class="muted">Użyj uczelnianego adresu e-mail (np. <code>123456@student.san.edu.pl</code> lub 
+      <code>imienazwisko@san.edu.pl</code>).
+    </p>
+
+    <form class="grid" id="reg-form" autocomplete="on" novalidate>
+      <div id="msg-error" class="error"></div>
+      <div id="msg-ok" class="ok"></div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="first_name">Imię</label>
+          <input id="first_name" class="input" placeholder="Jan" autocomplete="given-name" required />
+        </div> 
+        <div class="field">
+          <label for="last_name">Nazwisko</label>
+          <input id="last_name" class="input" placeholder="Kowalski" autocomplete="family-name" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="email">E-mail uczelniany</label>
+        <input id="email" type="email" class="input" placeholder="np. 123456@student.san.edu.pl" autocomplete="email" required />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="password">Hasło</label>
+          <input id="password" type="password" class="input" minlength="8" autocomplete="new-password" required />
+          <small class="muted">Minimum 8 znaków</small>
+        </div>
+        <div class="field">
+          <label for="password2">Powtórz hasło</label>
+          <input id="password2" type="password" class="input" minlength="8" autocomplete="new-password" required />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btn-submit" class="btn full" type="submit">Utwórz konto</button>
+      </div>
+            <p class="muted" style="text-align:center;margin-top:10px">
+        Masz konto? <a href="{% url 'login' %}">Zaloguj się</a>
+      </p>
+    </form>
+  </div>
+</section>
+
+<style>
+  * {
+  box-sizing: border-box;
+}
+<!-- Używa dokładnie tych samych „utility” co login -->
+
+  .page-auth { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 80px); }
+  .card--auth { width:100%; max-width:440px; margin: 0 auto; }
+  .input { width: 100%; box-sizing:border-box; }
+  .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:42px; }
+  .field label { display:block; font-size:14px; font-weight:600; margin-bottom:6px; margin-right:4px; max-width:480px; }
+  .field small { display:block; margin-top:4px; margin-right:4px; font-size:12px; }
+  .actions { display:flex; gap:10px; align-items:center; margin-top:12px; }
+  .btn.full { width:100%; }
+</style>
+
+<script>
+  (function () {
+    const msgErr = document.getElementById('msg-error');
+    const msgOk  = document.getElementById('msg-ok');
+    const show   = (el,t)=>{ el.textContent=t; el.style.display='block' };
+    const hide   = (el)=>{ el.style.display='none'; el.textContent='' };
+
+    function validateEmailDomain(email){
+      // Dopuszczamy dowolny adres w domenie san.edu.pl (z subdomeną 'student' też)
+      return /@([a-z0-9.-]+\.)?san\.edu\.pl$/i.test(email);
+    }
+
+    document.getElementById('reg-form').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      hide(msgErr); hide(msgOk);
+
+      const first_name = document.getElementById('first_name').value.trim();
+      const last_name  = document.getElementById('last_name').value.trim();
+      const email      = document.getElementById('email').value.trim();
+      const password   = document.getElementById('password').value;
+      const password2  = document.getElementById('password2').value;
+
+      if (!first_name || !last_name) { show(msgErr, 'Uzupełnij imię i nazwisko.'); return; }
+      if (!validateEmailDomain(email)) { show(msgErr, 'Użyj uczelnianego adresu e-mail w domenie san.edu.pl.'); return; }
+      if (password.length < 8) { show(msgErr, 'Hasło musi mieć co najmniej 8 znaków.'); return; }
+      if (password !== password2) { show(msgErr, 'Hasła nie są identyczne.'); return; }
+
+      const btn = document.getElementById('btn-submit'); 
+      btn.disabled = true;
+
+      try{
+        // Rejestracja — backend nada rolę na podstawie maila (student/nauczyciel)
+        const r = await fetch(`${window.API_BASE}/users/register`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ email, password, first_name, last_name })
+        });
+
+        if (!r.ok){
+          // spróbujmy zczytać błąd z backendu
+          let msg = 'Nie udało się zarejestrować.';
+          try {
+            const err = await r.json();
+            if (err?.detail) msg = Array.isArray(err.detail) ? err.detail.map(d => d.msg || d).join(', ') : err.detail;
+          } catch(_) {}
+          throw new Error(msg);
+        }
+
+        show(msgOk,'Konto utworzone. Loguję…');
+
+        // Auto-login (OAuth2 password flow – tak jak w loginie)
+        const loginRes = await fetch(`${window.API_BASE}/users/login`, {
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:new URLSearchParams({ username: email, password })
+        });
+        if(!loginRes.ok) throw new Error('Utworzono konto, ale logowanie nie powiodło się.');
+
+        const data = await loginRes.json();
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('token_type', data.token_type || 'Bearer');
+
+        if (window.auth && typeof window.auth.setAuthUI === 'function') {
+          window.auth.setAuthUI();
+        }
+        setTimeout(()=> location.href = "{% url 'home' %}", 400);
+      }catch(err){
+        show(msgErr, 'Błąd: ' + (err.message || 'spróbuj ponownie później'));
+      }finally{
+        btn.disabled = false;
+      }
+    });
+  })();
+</script>
+{% endblock %}

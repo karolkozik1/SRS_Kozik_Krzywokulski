@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Zarządzanie salami{% endblock %}
+{% block h1 %}Zarządzanie salami{% endblock %}
+{% block subtitle %}Panel administratora – lista i edycja sal{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  <h2>Lista sal</h2>
+  <button id="btn-add" class="btn">Dodaj salę</button>
+</div>
+
+{% comment %} Nagłówki {% endcomment %}
+<table id="rooms-table" style="width:100%;border-collapse:collapse">
+  <thead>
+    <tr style="background:rgba(255,255,255,.06)">
+      <th style="padding:8px;border:1px solid var(--border)">ID</th>
+      <th style="padding:8px;border:1px solid var(--border)">Numer</th>
+      <th style="padding:8px;border:1px solid var(--border)">Budynek</th>
+      <th style="padding:8px;border:1px solid var(--border)">Piętro</th>
+      <th style="padding:8px;border:1px solid var(--border)">Pojemność</th>
+      <th style="padding:8px;border:1px solid var(--border)">Typ sali</th>
+      <th style="padding:8px;border:1px solid var(--border)">Status</th>
+      <th style="padding:8px;border:1px solid var(--border)">Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Modal -->
+<div id="roomModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <span id="closeModal" class="close">&times;</span>
+    <h3 id="modal-title">Dodaj/Edytuj salę</h3>
+    <form id="room-form" class="grid">
+      <input type="hidden" id="room-id" />
+      <div>
+        <label for="room_number">Numer sali</label>
+        <input id="room_number" class="input" required />
+      </div>
+      <div>
+        <label for="building_id">Budynek</label>
+        <select id="building_id" class="input" required>
+          <option value="1">A</option>
+          <option value="2">B</option>
+          <option value="3">C</option>
+        </select>
+      </div>
+      <div>
+        <label for="floor">Piętro</label>
+        <input id="floor" type="number" class="input" required />
+        </div>
+      <div>
+        <label for="capacity">Pojemność</label>
+        <input id="capacity" type="number" class="input" required />
+      </div>
+      <div>
+        <label for="room_type_id">Typ sali</label>
+        <select id="room_type_id" class="input" required>
+          <option value="1">Wykładowa</option>
+          <option value="2">Komputerowa</option>
+          <option value="3">Konferencyjna</option>
+          <option value="4">Językowa</option>
+        </select>
+      </div>
+      {% comment %} <div>
+        <label for="accessibility_id">Status dostępności (ID)</label>
+        <input id="accessibility_id" type="number" class="input" required />
+      </div> {% endcomment %}
+      <div>
+        <label for="accessibility_id">Dostępność</label>
+        <select id="accessibility_id" class="input" required>
+        <option value="1">Dostępna</option>
+        <option value="2">Niedostępna</option>
+        <option value="3">W konserwacji</option>
+        </select>
+      </div>
+      <button class="btn" type="submit">Zapisz</button>
+      <div id="form-msg" class="error" style="display:none"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const token = localStorage.getItem("access_token");
+  if(!token){ window.location.href="/login"; return; }
+
+  const tableBody = document.querySelector("#rooms-table tbody");
+  const modal = document.getElementById("roomModal");
+  const closeBtn = document.getElementById("closeModal");
+  const form = document.getElementById("room-form");
+  const msg = document.getElementById("form-msg");
+
+  const buildingMap = {1:"A",2:"B",3:"C"};
+  const typeMap = {1:"Wykładowa",2:"Komputerowa",3:"Konferencyjna",4:"Językowa"};
+  const statusMap = {1:"Dostępna",2:"Niedostępna",3:"W konserwacji"};
+
+  async function loadRooms(){
+    tableBody.innerHTML = "";
+    const r = await fetch(`${window.API_BASE}/rooms`, {
+      headers:{Authorization:`Bearer ${token}`}
+    });
+    const data = await r.json();
+    for(const room of data){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="border:1px solid var(--border);padding:6px">${room.id}</td>
+        <td style="border:1px solid var(--border);padding:6px">${room.room_number}</td>
+        <td style="border:1px solid var(--border);padding:6px">${buildingMap[room.building_id] || room.building_id}</td>
+        <td style="border:1px solid var(--border);padding:6px">${room.floor ?? "-"}</td> 
+        <td style="border:1px solid var(--border);padding:6px">${room.capacity}</td>
+        <td style="border:1px solid var(--border);padding:6px">${typeMap[room.room_type_id] || room.room_type_id}</td>
+        <td style="border:1px solid var(--border);padding:6px">${statusMap[room.accessibility_id] || room.accessibility_id}</td>
+        <td style="border:1px solid var(--border);padding:6px">
+          <button class="btn btn-small" data-id="${room.id}">Edytuj</button>
+        </td>`;
+      tableBody.appendChild(tr);
+    }
+  }
+
+  // Obsługa przycisku Edytuj
+  tableBody.addEventListener("click", async (e)=>{
+    if(e.target.tagName==="BUTTON"){
+      const id = e.target.dataset.id;
+      const r = await fetch(`${window.API_BASE}/rooms/${id}`, {
+        headers:{Authorization:`Bearer ${token}`}
+      });
+      if(r.ok){
+        const room = await r.json();
+        document.getElementById("room-id").value = room.id;
+        document.getElementById("room_number").value = room.room_number;
+        document.getElementById("building_id").value = room.building_id;
+        document.getElementById("floor").value = room.floor;
+        document.getElementById("capacity").value = room.capacity;
+        document.getElementById("room_type_id").value = room.room_type_id;
+        document.getElementById("accessibility_id").value = room.accessibility_id;
+        document.getElementById("modal-title").textContent="Edytuj salę";
+        modal.style.display="flex";
+      }
+    }
+  });
+
+  // Obsługa przycisku Dodaj
+  document.getElementById("btn-add").onclick=()=>{
+    form.reset();
+    document.getElementById("room-id").value="";
+    document.getElementById("modal-title").textContent="Dodaj salę";
+    modal.style.display="flex";
+  };
+
+  closeBtn.onclick=()=> modal.style.display="none";
+  window.onclick=(e)=>{ if(e.target===modal) modal.style.display="none"; };
+
+  // Submit formularza
+  form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    msg.style.display="none";
+
+    const roomData = {
+      room_number: document.getElementById("room_number").value,
+      building_id: parseInt(document.getElementById("building_id").value),
+      floor: parseInt(document.getElementById("floor").value),
+      capacity: parseInt(document.getElementById("capacity").value),
+      room_type_id: parseInt(document.getElementById("room_type_id").value),
+      accessibility_id: parseInt(document.getElementById("accessibility_id").value),
+    };
+
+    const id = document.getElementById("room-id").value;
+    const method = id ? "PUT" : "POST";
+    const url = id ? `${window.API_BASE}/rooms/${id}` : `${window.API_BASE}/rooms`;
+
+    try{
+      const r = await fetch(url, {
+        method,
+        headers:{
+          Authorization:`Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify(roomData)
+      });
+      if(!r.ok) throw new Error("Nie udało się zapisać");
+      modal.style.display="none";
+      loadRooms();
+    }catch(err){
+      msg.textContent=err.message;
+      msg.style.display="block";
+    }
+  });
+
+  loadRooms();
+});
+</script>
+{% endblock %}

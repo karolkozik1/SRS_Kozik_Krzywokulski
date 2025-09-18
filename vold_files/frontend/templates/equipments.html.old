@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Sprzęty{% endblock %}
+{% block h1 %}Kreator sprzętów{% endblock %}
+{% block subtitle %}Dodawaj i edytuj listę dostępnego sprzętu w systemie{% endblock %}
+{% block content %}
+
+<div class="grid">
+  <h3>Lista sprzętów</h3>
+  <table class="eq-table">
+    <thead>
+      <tr><th>ID</th><th>Nazwa</th></tr>
+    </thead>
+    <tbody id="equipment-list"></tbody>
+  </table>
+
+  <h3>Dodaj sprzęt</h3>
+  <form id="equipment-form" class="grid" style="grid-template-columns:1fr auto;gap:8px">
+    <input id="equipment-name" class="input" placeholder="Nazwa sprzętu" required />
+    <button class="btn" type="submit">Dodaj</button>
+  </form>
+</div>
+
+<script>
+const token = localStorage.getItem('access_token');
+const list = document.getElementById('equipment-list');
+
+async function loadEquipment(){
+  const r = await fetch(`${window.API_BASE}/equipment/`, { headers:{'Authorization':'Bearer '+token}});
+  const data = await r.json();
+  list.innerHTML='';
+  data.forEach(eq=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${eq.id}</td><td>${eq.name}</td>`;
+    list.appendChild(tr);
+  });
+}
+
+document.getElementById('equipment-form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const name = document.getElementById('equipment-name').value.trim();
+  const r = await fetch(`${window.API_BASE}/equipment/`,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({ name })
+  });
+  if(r.ok){ document.getElementById('equipment-name').value=''; loadEquipment(); }
+  else alert("Błąd dodawania sprzętu");
+});
+
+loadEquipment();
+</script>
+{% endblock %}

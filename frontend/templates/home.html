@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block h1 %}<span id="page-title">Witaj w systemie</span>{% endblock %}
+{% block subtitle %}<span id="page-subtitle">Zaloguj się, aby tworzyć rezerwacje</span>{% endblock %}
+
+{% block content %}
+<div id="welcome" style="margin-bottom:16px; font-size:24px; font-weight:500"></div>
+
+<!-- Blok dla niezalogowanych -->
+<div id="guest-block" style="display:none; text-align:center; margin:30px 0">
+  <p class="muted" style="font-size:18px; margin-bottom:20px">
+    Aby korzystać z systemu, zaloguj się lub załóż konto:
+  </p>
+  <div style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap">
+    <a class="btn" href="/login" style="font-size:18px; padding:14px 24px">Zaloguj się</a>
+    <a class="btn" href="/register" style="font-size:18px; padding:14px 24px; background:var(--accent-2)">
+      Rejestracja
+    </a>
+  </div>
+</div>
+
+<!-- Blok dla zalogowanych -->
+<div id="auth-block" style="display:none">
+  <p class="muted">Szybkie linki:</p>
+  <div id="quick-links" style="display:flex;gap:10px;flex-wrap:wrap">
+    <a class="btn" href="/my-reservations" data-role="2,3">Moje rezerwacje</a>
+    <a class="btn" href="/rooms">Lista sal</a>
+    <a class="btn" href="/reserve" data-role="2,3">Zarezerwuj salę </a>
+    <a class="btn" href="/all-reservations" data-role="3">Wszystkie rezerwacje</a>
+    <a class="btn" href="/rooms-admin" data-role="3">Zarządzanie salami </a>
+    <a class="btn" href="/rooms-eq-admin" data-role="3">Zarządzanie sprzętem w salach </a>
+    <a class="btn" href="/equipments-manage" data-role="3">Zarządzanie sprzętem </a>
+    <a class="btn" href="/reports" data-role="2,3">Raporty </a>
+    <a class="btn" href="/rooms-search" data-role="2,3">Wyszukiwarka sal </a>
+  </div>
+
+  <section class="card" id="calendar-block">
+    <div class="card-header">
+      <h1>Kalendarz rezerwacji</h1>
+    </div>
+    <div class="card-body">
+      {% include "partials/calendar_block.html" %}
+    </div>
+  </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const token = localStorage.getItem('access_token');
+  const guestBlock = document.getElementById("guest-block");
+  const authBlock = document.getElementById("auth-block");
+
+  const pageTitle = document.getElementById("page-title");
+  const pageSubtitle = document.getElementById("page-subtitle");
+
+  if(token){
+    try{
+      const r = await fetch(`${window.API_BASE}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if(r.ok){
+        const u = await r.json();
+        document.getElementById('welcome').textContent = `Witaj, ${u.first_name} ${u.last_name}!`;
+        authBlock.style.display = "block";
+
+        // Ukryj nagłówek i podtytuł
+        if(pageTitle) pageTitle.style.display = "none";
+        if(pageSubtitle) pageSubtitle.style.display = "none";
+
+        // Obsługa ról
+        const userRole = parseInt(u.role || u.role_id || u.user_role);
+        document.querySelectorAll('#quick-links a[data-role]').forEach(btn=>{
+          const allowed = btn.dataset.role.split(',').map(x=>parseInt(x.trim()));
+          if(!allowed.includes(userRole)){
+            btn.style.display = "none";
+          }
+        });
+      } else {
+        guestBlock.style.display = "block";
+      }
+    }catch(err){
+      console.error(err);
+      guestBlock.style.display = "block";
+    }
+  } else {
+    guestBlock.style.display = "block";
+  }
+});
+</script>
+{% endblock %}

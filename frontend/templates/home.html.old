@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block h1 %}Witaj w systemie{% endblock %}
+{% block subtitle %}Zaloguj się, aby tworzyć rezerwacje{% endblock %}
+{% block content %}
+<div id="welcome" style="margin-bottom:16px; font-size:24px; font-weight:500"></div>
+<p class="muted">Szybkie linki:</p>
+<div style="display:flex;gap:10px;flex-wrap:wrap">
+  <a class="btn" href="/my-reservations" data-require-auth>Moje rezerwacje (nauczyciel i admin)</a>
+  <a class="btn" href="/rooms">Lista sal</a>
+  <a class="btn" href="/reserve" data-require-auth>Zarezerwuj salę (nauczyciel i admin)</a>
+  <a class="btn" href="/all-reservations" data-require-auth>Wszystkie rezerwacje (administrator)</a>
+  <a class="btn" href="/rooms-admin" data-require-auth>Zarządzanie salami (administrator only)</a>
+  <a class="btn" href="/rooms-eq-admin" data-require-auth>Zarządzanie sprzętem w salach (administrator only)</a>
+  <a class="btn" href="/equipments-manage" data-require-auth>Zarządzanie sprzętem (administrator only)</a>
+  <a class="btn" href="/reports" data-require-auth>Raporty (nauczyciel i admin)</a>
+  <a class="btn" href="/rooms-search">Wyszukiwarka sal (nauczyciel i admin)</a>
+</div>
+<section class="card">
+  <div class="card-header">
+    <h1>Kalendarz rezerwacji</h1>
+  </div>
+  <div class="card-body">
+    {% include "partials/calendar_block.html" %}
+  </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const token = localStorage.getItem('access_token');
+  if(token){
+    const r = await fetch(`${window.API_BASE}/users/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if(r.ok){
+      const u = await r.json();
+      document.getElementById('welcome').textContent = `Witaj, ${u.first_name} ${u.last_name}!`;
+    }
+  }
+});
+</script>
+
+{% endblock %}

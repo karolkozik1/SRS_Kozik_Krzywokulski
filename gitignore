@@ -1,0 +1,58 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.pdb
+*.so
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+*.log
+
+# --- Wirtualne środowiska / sekrety ---
+venv/
+backend/venv/
+frontend/venv/
+.env
+.env.*
+backend/.env
+frontend/.env
+.envrc
+.python-version
+vold_files/
+*.temp
+*.err
+*.old
+*.old2
+*.old3
+*.bak
+*.bak2
+*.bak3
+# --- FastAPI / ogólne artefakty ---
+dist/
+build/
+*.sqlite
+*.db
+
+# --- Django (frontend) ---
+# lokalna baza dev
+frontend/db.sqlite3
+# katalog docelowy collectstatic
+frontend/staticfiles/
+
+# frontend/static/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Raporty/eksport ---
+# reports/tmp/
+# app/tmp/

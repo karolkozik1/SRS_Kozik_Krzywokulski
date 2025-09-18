@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Sprzęty{% endblock %}
+{% block h1 %}Lista sprzętów{% endblock %}
+{% block subtitle %}Dodawaj, edytuj i usuwaj sprzęty globalne{% endblock %}
+{% block content %}
+
+<div id="msg-error" class="error"></div>
+<div id="msg-ok" class="ok"></div>
+
+<form id="equipment-form" class="grid" style="margin-bottom:20px">
+  <div>
+    <label for="name">Nazwa sprzętu</label>
+    <input id="name" class="input" required />
+  </div>
+  <button id="btn-add" class="btn" type="submit">Dodaj sprzęt</button>
+</form>
+
+<table style="width:100%;border-collapse:collapse" id="equipment-table">
+  <thead>
+    <tr>
+      <th style="text-align:left">ID</th>
+      <th style="text-align:left">Nazwa</th>
+      <th style="text-align:left">Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+
+
+<script>
+  const tableBody = document.querySelector("#equipment-table tbody");
+  const msgErr = document.getElementById("msg-error");
+  const msgOk  = document.getElementById("msg-ok");
+
+  function show(el, t){ el.textContent=t; el.style.display="block"; }
+  function hide(el){ el.textContent=""; el.style.display="none"; }
+
+  async function loadEquipment(){
+    hide(msgErr); hide(msgOk);
+    tableBody.innerHTML = "";
+    try {
+      const r = await fetch(`${window.API_BASE}/equipment/`);
+      if(!r.ok) throw new Error("Błąd pobierania listy sprzętów");
+      const data = await r.json();
+      data.forEach(eq=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${eq.id}</td>
+          <td>${eq.name}</td>
+          <td>
+            <button class="btn" style="background:var(--danger)" onclick="deleteEquipment(${eq.id})">Usuń</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    } catch(err){
+      show(msgErr, err.message);
+    }
+  }
+
+  async function deleteEquipment(id){
+    if(!confirm("Na pewno chcesz usunąć ten sprzęt?")) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      const r = await fetch(`${window.API_BASE}/equipment/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if(r.status === 204){
+        show(msgOk, "Usunięto sprzęt");
+        loadEquipment();
+      } else {
+        const err = await r.json().catch(()=>({}));
+        throw new Error(err?.detail || "Błąd usuwania sprzętu");
+      }
+    } catch(err){
+      show(msgErr, err.message);
+    }
+  }
+
+  document.getElementById("equipment-form").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    hide(msgErr); hide(msgOk);
+    const name = document.getElementById("name").value.trim();
+    if(!name) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      const r = await fetch(`${window.API_BASE}/equipment/`, {
+        method: "POST",
+        headers: {
+          "Content-Type":"application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ name })
+      });
+      if(!r.ok){
+        const err = await r.json().catch(()=>({}));
+        throw new Error(err?.detail || "Nie udało się dodać sprzętu");
+      }
+      document.getElementById("name").value = "";
+      show(msgOk, "Dodano sprzęt");
+      loadEquipment();
+    } catch(err){
+      show(msgErr, err.message);
+    }
+  });
+
+  loadEquipment();
+</script>
+{% endblock %}

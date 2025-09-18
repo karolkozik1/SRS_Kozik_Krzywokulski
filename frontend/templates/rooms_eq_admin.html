@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Wyposażenie sal{% endblock %}
+{% block h1 %}Zarządzanie wyposażeniem sal{% endblock %}
+{% block subtitle %}Dodawaj i edytuj sprzęt w poszczególnych salach{% endblock %}
+
+{% block content %}
+<div class="grid" style="grid-template-columns: 1fr 2fr; gap:20px">
+
+  <!-- Lista sal -->
+  <div class="card">
+    <div class="card-header"><h3>Sale</h3><h4>Kliknij na sale aby zobaczyć podgląd</h4></div>
+    <div class="card-body">
+      <div id="rooms-msg" class="muted" style="margin-bottom:8px"></div>
+      <ul id="rooms-list" class="rooms-list" style="list-style:none;padding:0;margin:0"></ul>
+    </div>
+  </div>
+
+  <!-- Szczegóły sali -->
+  <div class="card">
+    <div class="card-header"><h3 id="room-title">Wybierz salę</h3></div>
+    <div class="card-body">
+      <div id="room-eq-msg" class="muted" style="margin-bottom:8px"></div>
+
+      <table class="eq-table" style="width:100%;margin-bottom:14px">
+        <thead>
+          <tr>
+            <th style="text-align:left">Sprzęt</th>
+            <th style="text-align:center;width:120px">Ilość</th>
+            <th style="text-align:center;width:120px">Akcje</th>
+
+        </thead>
+        <tbody id="room-equipment-list"></tbody>
+      </table>
+
+      <div id="add-equipment-form" style="display:none">
+        <h4>Dodaj sprzęt</h4>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <select id="equipment-select" class="input" style="min-width:220px"></select>
+          <input id="equipment-qty" type="number" class="input" value="1" min="1" style="width:100px">
+          <button id="btn-add-eq" class="btn">Dodaj do sali</button>
+        </div>
+        <div id="add-eq-msg" class="muted" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+const token = localStorage.getItem("access_token");
+let currentRoomId = null;
+
+function setText(id, text){ const el = document.getElementById(id); if(el) el.textContent = text || ""; }
+function show(el){ el.style.display = ""; }
+function hide(el){ el.style.display = "none"; }
+
+function readSelectedEquipment() {
+  const sel = document.getElementById("equipment-select");
+  const id  = Number(sel.value);
+  const name = sel.selectedOptions?.[0]?.textContent?.trim() || "";
+  return { id, name };
+}
+function toInt(val) {
+  const n = Number(val);
+  return Number.isFinite(n) ? Math.trunc(n) : NaN;
+}
+
+/* ROOMS */
+async function loadRooms(){
+  setText("rooms-msg","Ładowanie…");
+  const list = document.getElementById("rooms-list");
+  list.innerHTML = "";
+  try{
+    const r = await fetch(`${window.API_BASE}/rooms`, {
+      headers: { Authorization:"Bearer "+token }
+    });
+    if(!r.ok){
+      const t = await r.text();
+      throw new Error(`Błąd ${r.status}: ${t}`);
+    }
+    const data = await r.json();
+    if(!Array.isArray(data) || data.length===0){
+      setText("rooms-msg","Brak sal.");
+      return;
+    }
+    setText("rooms-msg","");
+    data.forEach(room=>{
+      const li = document.createElement("li");
+      li.textContent = `Sala ${room.room_number} (Budynek ${room.building_id}, piętro ${room.floor})`;
+      li.className = "room-item";
+      li.style.cursor = "pointer";
+      li.onclick = ()=> selectRoom(room);
+      list.appendChild(li);
+    });
+  }catch(err){
+    console.error(err);
+    setText("rooms-msg", err.message || "Nie udało się pobrać listy sal.");
+  }
+}
+
+async function selectRoom(room){
+  currentRoomId = room.id;
+  document.getElementById("room-title").textContent = `Sala ${room.room_number} – wyposażenie`;
+  show(document.getElementById("add-equipment-form"));
+  await Promise.all([ loadRoomEquipment(room.id), loadAllEquipment() ]);
+}
+
+/* ROOM EQUIPMENT (GET)  */
+async function loadRoomEquipment(roomId){
+  setText("room-eq-msg","Ładowanie wyposażenia…");
+  const list = document.getElementById("room-equipment-list");
+  list.innerHTML = "";
+  try{
+    const r = await fetch(`${window.API_BASE}/room-equipment/rooms/${roomId}`, {
+      method: "GET",
+      headers: { Authorization:"Bearer "+token }
+    });
+    if(!r.ok){
+      const t = await r.text();
+      throw new Error(`Błąd ${r.status}: ${t}`);
+    }
+    const data = await r.json();
+    setText("room-eq-msg", data.length ? "" : "Brak przypisanego sprzętu.");
+    data.forEach(item=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${item.name}</td>
+        <td style="text-align:center">${item.quantity}</td>
+        <td style="text-align:center">
+          <button class="btn btn-small" data-edit>Edytuj</button>
+          <button class="btn" style="background:linear-gradient(180deg,#ef4444,#dc2626)"
+                    onclick="deleteEquipmentItem(${item.id})">Usuń</button>  
+        </td>`;
+      tr.querySelector("[data-edit]").onclick = ()=> editQuantity(item);
+      list.appendChild(tr);
+    });
+  }catch(err){
+    console.error(err);
+    setText("room-eq-msg", err.message || "Nie udało się pobrać wyposażenia.");
+  }
+}
+
+/* EQUIPMENT CATALOG  */
+async function loadAllEquipment(){
+  const sel = document.getElementById("equipment-select");
+  sel.innerHTML = `<option value="">Ładowanie…</option>`;
+  try{
+    const r = await fetch(`${window.API_BASE}/equipment/`, {
+      headers: { Authorization:"Bearer "+token }
+    });
+    if(!r.ok){
+      const t = await r.text();
+      throw new Error(`Błąd ${r.status}: ${t}`);
+    }
+    const data = await r.json();
+    if(!Array.isArray(data) || data.length===0){
+      sel.innerHTML = `<option value="">Brak zdefiniowanych sprzętów</option>`;
+      return;
+    }
+    sel.innerHTML = data.map(eq => `<option value="${eq.id}">${eq.name}</option>`).join("");
+  }catch(err){
+    console.error(err);
+    sel.innerHTML = `<option value="">Nie udało się pobrać listy sprzętów</option>`;
+  }
+}
+
+/*  ADD EQUIPMENT */
+document.getElementById("btn-add-eq").onclick = addEquipmentToRoom;
+
+async function addEquipmentToRoom() {
+  setText("add-eq-msg", "");
+  if (!currentRoomId) { setText("add-eq-msg","Najpierw wybierz salę."); return; }
+
+  const qtyVal = document.getElementById("equipment-qty").value;
+  const quantity = toInt(qtyVal);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    setText("add-eq-msg","Podaj dodatnią liczbę całkowitą (1, 2, 3, …).");
+    return;
+  }
+
+  const { id: selectedId } = readSelectedEquipment();
+  if (!selectedId || Number.isNaN(selectedId)) {
+    setText("add-eq-msg","Wybierz sprzęt z listy.");
+    return;
+  }
+
+  const url = `${window.API_BASE}/room-equipment/rooms/${currentRoomId}`;
+  const payload = {
+    items: [
+      { equipment_id: Number(selectedId), quantity }
+    ]
+  };
+
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const raw = await r.text();
+    if (!r.ok) {
+      // rozpisz ładnie 422/inne
+      try {
+        const json = JSON.parse(raw);
+        if (json?.detail) {
+          if (Array.isArray(json.detail)) {
+            const msg = json.detail.map(d => {
+              const path = d.loc ? d.loc.join(".") : "";
+              return `${d.type || "error"} @ ${path}: ${d.msg || ""}`;
+            }).join("\n");
+            throw new Error(msg);
+          } else {
+            throw new Error(typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail));
+          }
+        }
+        throw new Error(JSON.stringify(json));
+      } catch {
+        throw new Error(`${r.status} ${r.statusText} — ${raw}`);
+      }
+    }
+
+    // sukces
+    await loadRoomEquipment(currentRoomId);
+    document.getElementById("equipment-qty").value = "1";
+    setText("add-eq-msg","Dodano.");
+  } catch (err) {
+    console.error(err);
+    setText("add-eq-msg", `Błąd dodawania: ${err.message}`);
+  }
+}
+
+
+
+
+/* EDIT QUANTITY  */
+async function editQuantity(item){
+  const eqId=parseInt(document.getElementById("equipment-select").value);
+  const eqName=document.getElementById("equipment-select")
+  const newQty=prompt("Nowa ilość:",item.quantity);
+  if(!newQty) return;
+  const r=await fetch(`${window.API_BASE}/room-equipment/${item.id}`,{
+    method:"PATCH",
+    headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+    body:JSON.stringify({equipment_id: eqId,name: eqName,quantity:parseInt(newQty)})
+  });
+  if(r.ok) loadRoomEquipment(currentRoomId);
+  else alert("Błąd edycji ilości");
+}
+
+/* DELETE EQUIPMENT */
+async function deleteEquipmentItem(roomEquipmentId){
+  setText("add-eq-msg", "");
+  if (!currentRoomId) { setText("add-eq-msg","Najpierw wybierz salę."); return; }
+
+  if (!confirm("Na pewno usunąć ten sprzęt z sali?")) return;
+
+  try {
+    const r = await fetch(`${window.API_BASE}/room-equipment/${roomEquipmentId}`, {
+      method: "DELETE",
+      mode: "cors",
+      headers: {Authorization: "Bearer " + token,}
+    });
+    if (!r.ok) {
+      const raw = await r.text();
+      // spróbuj ładnie wypisać detail z FastAPI
+      try {
+        const j = JSON.parse(raw);
+        const msg = j?.detail ? (typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail)) : raw;
+        throw new Error(msg);
+      } catch {
+        throw new Error(`${r.status} ${r.statusText} — ${raw}`);
+      }
+    }
+    // sukces
+    await loadRoomEquipment(currentRoomId);
+    setText("add-eq-msg","Usunięto.");
+  } catch (err) {
+    console.error(err);
+    setText("add-eq-msg", `Błąd usuwania: ${err.message}`);
+  }
+}
+
+/* INIT*/
+loadRooms();
+</script>
+{% endblock %}

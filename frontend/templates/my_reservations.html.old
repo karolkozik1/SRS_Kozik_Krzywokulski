@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Moje rezerwacje{% endblock %}
+{% block h1 %}Moje rezerwacje{% endblock %}
+{% block subtitle %}Przegląd i status wszystkich Twoich rezerwacji{% endblock %}
+
+{% block content %}
+  <div id="msg-error" class="error"></div>
+  <div id="res-container" style="overflow-x:auto"></div>
+
+  <style>
+    .table { width:100%; border-collapse:collapse; margin-top:12px }
+    .table th,.table td { padding:10px; border:1px solid var(--border); text-align:center }
+    .table th { background:rgba(255,255,255,.05); font-weight:600 }
+    .loading{color:var(--muted);padding:12px}
+  </style>
+
+  <script>
+    const msgErr = document.getElementById('msg-error');
+    const resContainer = document.getElementById('res-container');
+
+    function showError(t){msgErr.textContent=t;msgErr.style.display='block'}
+
+    async function loadReservations(){
+      msgErr.style.display='none';
+      resContainer.innerHTML='<p class="loading">Ładowanie…</p>';
+
+      try{
+        const token = localStorage.getItem("access_token");
+        if(!token){resContainer.innerHTML="<p>Zaloguj się aby zobaczyć swoje rezerwacje.</p>";return;}
+
+        const r = await fetch(`${window.API_BASE}/reservations/my`,{
+          headers:{Authorization:`Bearer ${token}`}
+        });
+        if(!r.ok) throw new Error("Błąd serwera");
+        const data = await r.json();
+
+        if(!data || data.length===0){resContainer.innerHTML="<p>Brak rezerwacji.</p>";return;}
+
+        resContainer.innerHTML=`
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Sala</th><th>Od</th><th>Do</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map(res=>`
+                <tr>
+                  <td>${res.id}</td>
+                  <td>${res.room_id}</td>
+                  <td>${new Date(res.start_time).toLocaleString()}</td>
+                  <td>${new Date(res.end_time).toLocaleString()}</td>
+                  <td>${res.reservation_status_id}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        `;
+      }catch(e){showError(e.message)}
+    }
+    document.addEventListener("DOMContentLoaded", loadReservations);
+  </script>
+{% endblock %}

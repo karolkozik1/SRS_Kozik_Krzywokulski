@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block h1 %}Witaj w systemie{% endblock %}
+{% block subtitle %}Zaloguj się, aby tworzyć rezerwacje{% endblock %}
+{% block content %}
+<div id="welcome" style="margin-bottom:16px; font-size:24px; font-weight:500"></div>
+<p class="muted">Szybkie linki:</p>
+<div id="quick-links" style="display:flex;gap:10px;flex-wrap:wrap">
+  <!-- Widoczne dla wszystkich -->
+  <a class="btn" href="/rooms">Lista sal</a>
+
+  <!-- Wymaga roli nauczyciel (2) lub admin (3) -->
+  <a class="btn" href="/my-reservations" data-role="2,3">Moje rezerwacje</a>
+  <a class="btn" href="/reserve" data-role="2,3">Zarezerwuj salę</a>
+  <a class="btn" href="/reports" data-role="2,3">Raporty</a>
+  <a class="btn" href="/rooms-search" data-role="2,3">Wyszukiwarka sal</a>
+
+  <!-- Wymaga roli administrator (3) -->
+  <a class="btn" href="/all-reservations" data-role="3">Wszystkie rezerwacje</a>
+  <a class="btn" href="/rooms-admin" data-role="3">Zarządzanie salami</a>
+  <a class="btn" href="/rooms-eq-admin" data-role="3">Zarządzanie sprzętem w salach</a>
+  <a class="btn" href="/equipments-manage" data-role="3">Zarządzanie sprzętem</a>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <h1>Kalendarz rezerwacji</h1>
+  </div>
+  <div class="card-body">
+    {% include "partials/calendar_block.html" %}
+  </div>
+</section>
+
+<div class="footer">
+      © {{ year|default:2025 }} — System Rezerwacji Sal
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const token = localStorage.getItem('access_token');
+  if(token){
+    try{
+      const r = await fetch(`${window.API_BASE}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if(r.ok){
+        const u = await r.json();
+        document.getElementById('welcome').textContent = `Witaj, ${u.first_name} ${u.last_name}!`;
+
+        // Ukryj nagłówek i podtytuł
+        if(pageTitle) pageTitle.style.display = "none";
+        if(pageSubtitle) pageSubtitle.style.display = "none";
+
+        // role: 1=student, 2=wykładowca, 3=admin
+        const userRole = u.role_id;
+
+        document.querySelectorAll('#quick-links a[data-role]').forEach(btn=>{
+          const allowed = btn.dataset.role.split(',').map(x=>parseInt(x.trim()));
+          if(!allowed.includes(userRole)){
+            btn.style.display = "none";
+          }
+        });
+      }
+    }catch(err){
+      console.error("Błąd pobierania usera", err);
+    }
+  } else {
+    // jeśli niezalogowany, ukryj wszystko co ma data-role
+    document.querySelectorAll('#quick-links a[data-role]').forEach(btn=>{
+      btn.style.display = "none";
+    });
+  }
+});
+</script>
+{% endblock %}

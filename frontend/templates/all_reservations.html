@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Wszystkie rezerwacje{% endblock %}
+{% block h1 %}Wszystkie rezerwacje{% endblock %}
+{% block subtitle %}Podgląd wszystkich rezerwacji w systemie (dla administratora){% endblock %}
+
+{% block content %}
+<div id="msg-error" class="error"></div>
+<div id="msg-ok" class="ok"></div>
+
+<table id="reservations-table" style="width:100%;border-collapse:collapse">
+  <thead>
+    <tr style="text-align:left;border-bottom:1px solid var(--border)">
+      <th>ID</th>
+      <th>Sala</th>
+      <th>Data</th>
+      <th>Godziny</th>
+      <th>Status</th>
+      <th>Użytkownik</th>
+      <th>Akcje</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const tableBody = document.querySelector('#reservations-table tbody');
+const msgErr = document.getElementById('msg-error');
+const msgOk  = document.getElementById('msg-ok');
+function show(el,t){el.textContent=t;el.style.display='block'}
+function hide(el){el.style.display='none';el.textContent=''}
+
+let roomMap = {};
+
+async function loadRooms(){
+  try{
+    const r = await fetch(`${window.API_BASE}/rooms`, {
+      headers:{ Authorization:`Bearer ${localStorage.getItem("access_token")}` }
+    });
+    if(r.ok){
+      const data = await r.json();
+      data.forEach(room => {
+        roomMap[room.id] = room.room_number || `Sala ${room.id}`;
+      });
+    }
+  }catch(err){
+    console.error("Nie udało się pobrać sal:", err);
+  }
+}
+
+async function loadAllReservations(){
+  hide(msgErr); hide(msgOk);
+  tableBody.innerHTML = '<tr><td colspan="7">Ładowanie...</td></tr>';
+
+  try{
+    const r = await fetch(`${window.API_BASE}/reservations/all`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    });
+    if(!r.ok) throw new Error("Nie udało się pobrać rezerwacji");
+    const data = await r.json();
+
+    tableBody.innerHTML = '';
+    if(data.length === 0){
+      tableBody.innerHTML = '<tr><td colspan="7">Brak rezerwacji</td></tr>';
+      return;
+    }
+
+    for(const res of data){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${res.id}</td>
+        <td>${roomMap[res.room_id] || res.room_id}</td>
+        <td>${new Date(res.start_time).toLocaleDateString()}</td>
+        <td>${new Date(res.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            –
+            ${new Date(res.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+        <td>${res.reservation_status_id === 1 ? "Aktywna" : (res.reservation_status_id === 2 ? "Anulowana" : "Zakończona")}</td>
+        <td>${res.user_id}</td>
+        <td>
+          ${res.reservation_status_id === 1
+            ? `<button class="btn-cancel" data-id="${res.id}">Anuluj</button>`
+            : ""}
+        </td>
+      `;
+      tableBody.appendChild(tr);
+    }
+
+    document.querySelectorAll('.btn-cancel').forEach(btn=>{
+      btn.addEventListener('click', ()=> cancelReservation(btn.dataset.id));
+    });
+
+  }catch(err){
+    show(msgErr, err.message);
+  }
+}
+
+async function cancelReservation(id){
+  const reason = prompt("Podaj powód anulowania rezerwacji:");
+  if(reason === null) return;
+
+  try{
+    const r = await fetch(`${window.API_BASE}/reservations/${id}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ reason })
+    });
+    if(!r.ok){
+      const err = await r.json().catch(()=>({}));
+      throw new Error(err?.detail || "Nie udało się anulować");
+    }
+    show(msgOk, "Rezerwacja anulowana");
+    loadRooms();
+    loadAllReservations();
+  }catch(err){
+    show(msgErr, err.message);
+  }
+}
+
+loadRooms();
+loadAllReservations();
+</script>
+{% endblock %}

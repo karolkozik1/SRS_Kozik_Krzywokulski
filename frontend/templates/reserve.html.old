@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Nowa rezerwacja{% endblock %}
+{% block h1 %}Zarezerwuj salę{% endblock %}
+{% block subtitle %}Wybierz salę, datę i godzinę aby utworzyć rezerwację{% endblock %}
+
+{% block content %}
+  <div id="msg-error" class="error"></div>
+  <div id="msg-ok" class="ok"></div>
+
+  <form id="reserve-form" class="grid" style="max-width:480px">
+    <div>
+      <label for="room">Sala</label>
+      <select id="room" class="input"></select>
+    </div>
+    <div>
+      <label for="date">Data</label>
+      <input id="date" type="date" class="input" required>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label for="start">Godzina od</label>
+        <input id="start" type="time" class="input" required>
+      </div>
+      <div>
+        <label for="end">Godzina do</label>
+        <input id="end" type="time" class="input" required>
+      </div>
+    </div>
+    <button class="btn" type="submit">Zarezerwuj</button>
+  </form>
+<script>
+  const msgErr = document.getElementById('msg-error');
+  const msgOk  = document.getElementById('msg-ok');
+  function show(el,t){el.textContent=t;el.style.display='block'}
+  function hide(el){el.style.display='none';el.textContent=''}
+
+  document.getElementById('res-form').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    hide(msgErr); hide(msgOk);
+
+    const room_id = document.getElementById('room_id').value;
+    const start   = document.getElementById('start').value;
+    const end     = document.getElementById('end').value;
+    const btn     = document.getElementById('btn-submit');
+
+    if(!room_id || !start || !end){ show(msgErr,"Wypełnij wszystkie pola"); return; }
+
+    btn.disabled = true;
+    try {
+      // 1) sprawdzamy dostępność
+      const token = localStorage.getItem('access_token');
+      const r1 = await fetch(`${window.API_BASE}/reservations/check?room_id=${room_id}&start=${start}&end=${end}`, {
+        headers:{ Authorization:`Bearer ${token}` }
+      });
+      const check = await r1.json();
+      if(!check.available){ show(msgErr,"Sala zajęta w tym czasie"); return; }
+
+      // 2) wysyłamy rezerwację
+      const r2 = await fetch(`${window.API_BASE}/reservations`, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          Authorization:`Bearer ${token}`
+        },
+        body: JSON.stringify({ room_id, start_time:start, end_time:end })
+      });
+      if(!r2.ok){
+        const err = await r2.json().catch(()=>({}));
+        throw new Error(err?.detail || "Błąd przy tworzeniu rezerwacji");
+      }
+      show(msgOk,"Rezerwacja utworzona!");
+      setTimeout(()=>location.href="/reservations",600);
+    } catch(err){
+      show(msgErr,"Błąd: "+err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+  
+{% endblock %}

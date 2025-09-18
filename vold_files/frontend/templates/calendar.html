@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Kalendarz rezerwacji{% endblock %}
+{% block h1 %}Kalendarz rezerwacji{% endblock %}
+{% block subtitle %}Widok miesięczny wszystkich sal{% endblock %}
+
+{% block content %}
+<div id="calendar"></div>
+
+<!-- FullCalendar CSS & JS (z CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const calendarEl = document.getElementById('calendar');
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'pl',        // polski język
+    firstDay: 1,         // tydzień od poniedziałku
+    height: 'auto',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    },
+    events: async (info, successCallback, failureCallback) => {
+      try {
+        const r = await fetch(`${window.API_BASE}/reservations/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        });
+        if(!r.ok) throw new Error("Nie udało się pobrać rezerwacji");
+        const data = await r.json();
+
+        // mapowanie rezerwacji -> eventy kalendarza
+        const events = data
+          .filter(res => res.reservation_status_id === 1 || res.reservation_status_id === 3) // tylko aktywne + zakończone
+          .map(res => ({
+            id: res.id,
+            title: `Sala ${res.room_id}`,  // można doprecyzować np. numer sali
+            start: res.start_time,
+            end: res.end_time,
+            color: res.reservation_status_id === 1 ? '#3b82f6' : '#9ca3af', // niebieski dla aktywnych, szary dla zakończonych
+          }));
+
+        successCallback(events);
+      } catch(err){
+        console.error(err);
+        failureCallback(err);
+      }
+    },
+    eventClick: (info) => {
+      alert(`Rezerwacja ID: ${info.event.id}\nSala: ${info.event.title}\nOd: ${info.event.start}\nDo: ${info.event.end}`);
+    }
+  });
+  calendar.render();
+});
+</script>
+
+<style>
+#calendar {
+  background: var(--panel);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+.fc { 
+  color: var(--text); 
+  font-size: 14px;
+}
+.fc-toolbar-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+</style>
+{% endblock %}

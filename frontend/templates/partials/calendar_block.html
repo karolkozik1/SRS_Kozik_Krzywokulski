@@ -1,0 +1,132 @@
+<div id="calendar"></div>
+
+<!-- Modal -->
+<div id="resModal" class="modal" style="display:none">
+  <div class="modal-content">
+    <span id="closeModal" class="close">&times;</span>
+    <h3>Szczegóły rezerwacji</h3>
+    <p><b>ID:</b> <span id="m-id"></span></p>
+    <p><b>Sala:</b> <span id="m-room"></span></p>
+    <p><b>Od:</b> <span id="m-start"></span></p>
+    <p><b>Do:</b> <span id="m-end"></span></p>
+    <p><b>Status:</b> <span id="m-status"></span></p>
+  </div>
+</div>
+
+<!-- FullCalendar -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const calendarEl = document.getElementById('calendar');
+  const modal = document.getElementById("resModal");
+  const closeBtn = document.getElementById("closeModal");
+
+  let roomMap = {};
+
+  // Najpierw pobierz listę sal
+  async function loadRooms(){
+    try{
+      const r = await fetch(`${window.API_BASE}/rooms`, {
+        headers:{ Authorization:`Bearer ${localStorage.getItem("access_token")}` }
+      });
+      if(r.ok){
+        const data = await r.json();
+        data.forEach(room => {
+          roomMap[room.id] = room.room_number || `Sala ${room.id}`;
+        });
+      }
+    }catch(err){
+      console.error("Nie udało się pobrać listy sal:", err);
+    }
+  }
+
+  await loadRooms();
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    locale: 'pl',
+    firstDay: 1,
+    height: 'auto',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    },
+    events: async (info, successCallback, failureCallback) => {
+      try {
+        const r = await fetch(`${window.API_BASE}/reservations/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+        });
+        if(!r.ok) throw new Error("Nie udało się pobrać rezerwacji");
+        const data = await r.json();
+
+        const events = data
+          .filter(res => res.reservation_status_id === 1 || res.reservation_status_id === 3)
+          .map(res => ({
+            id: res.id,
+            title: `Sala ${roomMap[res.room_id] || "Sala " + res.room_id}`,
+            start: res.start_time,
+            end: res.end_time,
+            extendedProps: {
+              room: roomMap[res.room_id] || `Sala ${res.room_id}`,
+              status: res.reservation_status_id === 1 ? "Aktywna" : "Zakończona"
+            },
+            color: res.reservation_status_id === 1 ? '#3b82f6' : '#9ca3af',
+          }));
+
+        successCallback(events);
+      } catch(err){
+        console.error(err);
+        failureCallback(err);
+      }
+    },
+    eventClick: (info) => {
+      document.getElementById("m-id").textContent = info.event.id;
+      document.getElementById("m-room").textContent = info.event.extendedProps.room;
+      document.getElementById("m-start").textContent = info.event.start.toLocaleString();
+      document.getElementById("m-end").textContent = info.event.end.toLocaleString();
+      document.getElementById("m-status").textContent = info.event.extendedProps.status;
+      modal.style.display = "block";
+    }
+  });
+  calendar.render();
+
+  closeBtn.onclick = () => modal.style.display = "none";
+  window.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+});
+</script>
+
+<style>
+#calendar {
+  background: var(--panel);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+.fc { color: var(--text); font-size: 14px; }
+.f-toolbar { background: #1f2937; border-radius: 8px; padding: 6px;}
+.fc-toolbar-title { font-size: 18px; font-weight: 600; }
+
+/* Modal */
+.modal {
+  position: fixed; z-index: 999;
+  left: 0; top: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-content {
+  background: var(--panel);
+  padding: 20px;
+  border-radius: 12px;
+  width: 360px;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.close {
+  float: right; font-size: 20px; cursor: pointer; color: var(--muted);
+}
+.close:hover { color: var(--danger); }
+</style>

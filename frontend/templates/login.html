@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Logowanie — System Rezerwacji</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #3b82f6;
+      --accent-2: #2563eb;
+      --danger: #ef4444;
+      --ok: #22c55e;
+      --border: #1f2937;
+      --input: #0b1220;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: radial-gradient(1200px 600px at 10% top, #0b1220 10%, #0b1220 30%, #020617 100%) fixed,
+                  radial-gradient(1200px 600px at right bottom, #0b1220 10%, #0b1220 30%, #020617 100%) fixed,
+                  radial-gradient(1200px 600px at center, #111827 10%, #0b1220 20%, #020617 100%) fixed,
+                  linear-gradient(to bottom right, #020617, #020617);
+      color: var(--text);
+      font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    .wrap {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 40px 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow:
+        0 40px 80px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.04);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 24px 24px 8px 24px;
+    }
+    h1 {
+      font-size: 28px;
+      margin: 0 0 8px 0;
+      letter-spacing: .2px;
+    }
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .card-body {
+      padding: 16px 24px 24px 24px;
+      display: grid;
+      gap: 16px;
+    }
+    label {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      display: inline-block;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .input {
+      width: 100%;
+      padding: 12px 14px;
+      color: var(--text);
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+    .pw-wrap {
+      position: relative;
+      display: grid;
+    }
+    .pw-toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 8px;
+    }
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .btn {
+      appearance: none;
+      border: 0;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color: white;
+      padding: 12px 14px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: filter .2s ease, transform .02s ease;
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { transform: translateY(1px); }
+    .btn[disabled] {
+      opacity: .7;
+      cursor: progress;
+      filter: grayscale(.2);
+    }
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 8px;
+    }
+    .error {
+      border: 1px solid rgba(239,68,68,.35);
+      background: rgba(239,68,68,.08);
+      color: #fecaca;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      display: none;
+    }
+    .ok {
+      border: 1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.08);
+      color: #bbf7d0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      display: none;
+    }
+    .footer {
+      padding: 14px 24px 22px 24px;
+      border-top: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="card-header">
+        <h1>Logowanie</h1>
+        <p class="sub">Użyj e-maila uczelnianego i hasła do systemu.</p>
+      </div>
+
+      <form class="card-body" id="login-form">
+        <div id="msg-error" class="error"></div>
+        <div id="msg-ok" class="ok"></div>
+
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input id="email" name="email" type="email" class="input" placeholder="np. jankowalski@san.edu.pl" required />
+        </div>
+
+        <div class="field">
+          <label for="password">Hasło</label>
+          <div class="pw-wrap">
+            <input id="password" name="password" type="password" class="input" placeholder="••••••••" required />
+            <button type="button" class="pw-toggle" aria-label="Pokaż/ukryj hasło" onclick="togglePw()">👁</button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btn-submit" type="submit" class="btn">Zaloguj</button>
+          <div class="meta">
+            Masz problem z logowaniem? Skontaktuj się z administratorem.
+          </div>
+        </div>
+      </form>
+
+      <div class="footer">
+        © {{ year|default:2025 }} — System Rezerwacji Sal
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Konfiguracja API. Jeśli nie przekażesz API_BASE_URL z Django,
+    // użyta zostanie domyślna wartość:
+    const API_BASE = "{{ API_BASE_URL|default:'http://127.0.0.1:8000' }}";
+    // Po zalogowaniu przekierujemy tutaj:
+    const REDIRECT_AFTER_LOGIN = "{{ redirect_after_login|default:'/' }}";
+
+    function show(el, text) {
+      el.textContent = text;
+      el.style.display = 'block';
+    }
+    function hide(el) {
+      el.textContent = '';
+      el.style.display = 'none';
+    }
+    function togglePw() {
+      const inp = document.getElementById('password');
+      inp.type = (inp.type === 'password') ? 'text' : 'password';
+    }
+
+    async function login(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit');
+      const msgErr = document.getElementById('msg-error');
+      const msgOk = document.getElementById('msg-ok');
+      hide(msgErr); hide(msgOk);
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        show(msgErr, 'Uzupełnij e-mail i hasło.');
+        return;
+      }
+
+      btn.disabled = true;
+
+      try {
+        // OAuth2PasswordRequestForm: username=<email>&password=<password>
+        const res = await fetch(`${API_BASE}/users/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ username: email, password })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          let text = 'Błąd logowania.';
+          if (res.status === 401 || res.status === 400) text = 'Nieprawidłowy e-mail lub hasło.';
+          if (err && err.detail) text += ` ${typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)}`;
+          throw new Error(text);
+        }
+
+        const data = await res.json();
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('token_type', data.token_type || 'bearer');
+
+        show(msgOk, 'Zalogowano pomyślnie. Przekierowuję…');
+        setTimeout(() => { window.location.href = REDIRECT_AFTER_LOGIN; }, 400);
+      } catch (err) {
+        show(msgErr, err.message || 'Wystąpił błąd.');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', login);
+  </script>
+</body>
+</html>

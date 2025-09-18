@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Rezerwacje{% endblock %}
+{% block h1 %}Nowa rezerwacja{% endblock %}
+{% block subtitle %}Wybierz salę, datę i godzinę, aby utworzyć rezerwację{% endblock %}
+
+{% block content %}
+<form id="res-form" class="grid">
+  <div id="msg-error" class="error"></div>
+  <div id="msg-ok" class="ok"></div>
+
+  <!-- Wybór sali -->
+  <label for="room_id">Sala</label>
+  <select id="room_id" class="input" required>
+    <option value="">-- wybierz salę --</option>
+  </select>
+  <div id="room-info" class="muted"></div>
+
+  <!-- Daty -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <label for="start">Początek</label>
+      <input id="start" type="datetime-local" class="input" required />
+    </div>
+    <div>
+      <label for="end">Koniec</label>
+      <input id="end" type="datetime-local" class="input" required />
+    </div>
+  </div>
+
+  <button class="btn" id="btn-submit">Rezerwuj</button>
+</form>
+
+<script>
+  const msgErr = document.getElementById('msg-error');
+  const msgOk  = document.getElementById('msg-ok');
+  function show(el,t){el.textContent=t;el.style.display='block'}
+  function hide(el){el.style.display='none';el.textContent=''}
+
+  const roomSelect = document.getElementById('room_id');
+  const roomInfo   = document.getElementById('room-info');
+
+  // Załaduj listę sal z backendu
+  async function loadRooms(){
+    try {
+      const r = await fetch(`${window.API_BASE}/rooms`);
+      const data = await r.json();
+      data.forEach(room=>{
+        const opt = document.createElement('option');
+        opt.value = room.id;
+        opt.textContent = `${room.room_number} (budynek ${room.building_id}, ${room.capacity} os.)`;
+        opt.dataset.info = `Budynek: ${room.building_id}, Pojemność: ${room.capacity}`;
+        roomSelect.appendChild(opt);
+      });
+    } catch(e){
+      console.error(e);
+    }
+  }
+  loadRooms();
+
+
+
+  roomSelect.addEventListener('change',()=>{
+    const opt = roomSelect.options[roomSelect.selectedIndex];
+    roomInfo.textContent = opt.dataset.info || "";
+  });
+  
+  //Obsługa formularza
+  document.getElementById('res-form').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    hide(msgErr); hide(msgOk);
+
+    const room_id = roomSelect.value;
+    const start   = document.getElementById('start').value;
+    const end     = document.getElementById('end').value;
+    const btn     = document.getElementById('btn-submit');
+
+    if(!room_id || !start || !end){ show(msgErr,"Wypełnij wszystkie pola"); return; }
+
+    btn.disabled = true;
+    try {
+      const token = localStorage.getItem('access_token');
+
+      //Sprawdź dostępność
+      const r1 = await fetch(`${window.API_BASE}/reservations/check?room_id=${room_id}&start=${start}&end=${end}`, {
+        headers:{ Authorization:`Bearer ${token}` }
+      });
+      const check = await r1.json();
+      if(!check.available){ show(msgErr,"Sala zajęta w tym czasie"); return; }
+
+      // Utwórz rezerwację
+      const r2 = await fetch(`${window.API_BASE}/reservations`, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          Authorization:`Bearer ${token}`
+        },
+        body: JSON.stringify({ room_id, start_time:start, end_time:end })
+      });
+      if(!r2.ok){
+        const err = await r2.json().catch(()=>({}));
+        throw new Error(err?.detail || "Błąd przy tworzeniu rezerwacji");
+      }
+      show(msgOk,"Rezerwacja utworzona!");
+      setTimeout(()=>location.href="/my-reservations",600);
+    } catch(err){
+      show(msgErr,"Błąd: "+err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

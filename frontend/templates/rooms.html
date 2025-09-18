@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Dostępne sale{% endblock %}
+{% block h1 %}Lista sal{% endblock %}
+{% block subtitle %}Przegląd wszystkich sal w systemie{% endblock %}
+
+{% block content %}
+  <div id="msg-error" class="error"></div>
+  <div id="rooms-container" style="overflow-x:auto"></div>
+
+  <style>
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    .table th, .table td {
+      padding: 10px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .table th {
+      background: rgba(255, 255, 255, .05);
+      font-weight: 600;
+    }
+    .loading {
+      color: var(--muted);
+      padding: 12px;
+    }
+  </style>
+
+  <script>
+    const msgErr = document.getElementById('msg-error');
+    const roomsContainer = document.getElementById('rooms-container');
+
+    const buildingMap = {1:"A",2:"B",3:"C"};
+    const typeMap = {1:"Wykładowa",2:"Komputerowa",3:"Konferencyjna",4:"Językowa"};
+
+    function showError(text) {
+      msgErr.textContent = text;
+      msgErr.style.display = 'block';
+    }
+
+    async function loadRooms() {
+      msgErr.style.display = 'none';
+      roomsContainer.innerHTML = '<p class="loading">Ładowanie…</p>';
+
+      try {
+        const res = await fetch(`${window.API_BASE}/rooms`);
+        if (!res.ok) throw new Error("Błąd serwera");
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+          roomsContainer.innerHTML = "<p>Brak dostępnych sal.</p>";
+          return;
+        }
+
+        roomsContainer.innerHTML = `
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Sala</th>
+                <th>Budynek</th>
+                <th>Pojemność</th>
+                <th>Typ sali</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map(r => `
+                <tr>
+                  <td>${r.id}</td>
+                  <td>${r.room_number || "-"}</td>
+                  {% comment %} <td>${r.building_id || "-"}</td> {% endcomment %}
+                  <td>${buildingMap[r.building_id] || r.building_id}</td>
+                  <td>${r.capacity || "-"}</td>
+                  {% comment %} <td>${r.room_type_id || "-"}</td> {% endcomment %}
+                  <td>${typeMap[r.room_type_id] || r.room_type_id}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        `;
+      } catch (e) {
+        showError(e.message);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadRooms);
+  </script>
+{% endblock %}

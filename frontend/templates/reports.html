@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Raporty{% endblock %}
+
+{% block h1 %}Generowanie raportów{% endblock %}
+{% block subtitle %}Eksportuj rezerwacje do PDF{% endblock %}
+
+{% block content %}
+<form id="report-form" class="grid" style="max-width:400px">
+  <div>
+    <label for="date_from">Od</label>
+    <input id="date_from" type="date" class="input" required>
+  </div>
+  <div>
+    <label for="date_to">Do</label>
+    <input id="date_to" type="date" class="input" required>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+  <button type="button" class="btn" id="preset-today">Dzisiaj</button>
+  <button type="button" class="btn" id="preset-week">Ostatnie 7 dni</button>
+  <button type="button" class="btn" id="preset-month">Bieżący miesiąc</button>
+  </div>
+
+  <button id="btn-download" type="submit" class="btn">Pobierz PDF</button>
+  <div id="msg-error" class="error"></div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form   = document.getElementById("report-form");
+  const msgErr = document.getElementById("msg-error");
+
+  //USTAW _JEDEN_ PRAWIDŁOWY PATH zgodnie z Twoją konfiguracją:
+  // 1) Jeżeli masz include_router(..., prefix="/reports") + @router.get("/reports/reservations.pdf"):
+    const REPORTS_PATH = "/reports/reports/reservations.pdf";
+  // 2) Jeżeli masz include_router(..., prefix="/reports") + @router.get("/reservations.pdf"):
+  //const REPORTS_PATH = "/reports/reservations.pdf";
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msgErr.style.display = "none";
+    msgErr.textContent   = "";
+
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      msgErr.textContent = "Musisz być zalogowany.";
+      msgErr.style.display = "block";
+      return;
+    }
+
+    const from = document.getElementById("date_from").value; // YYYY-MM-DD
+    const to   = document.getElementById("date_to").value;   // YYYY-MM-DD
+    if (!from || !to) {
+      msgErr.textContent = "Uzupełnij zakres dat.";
+      msgErr.style.display = "block";
+      return;
+    }
+    if (from > to) {
+      msgErr.textContent = "Data 'Od' nie może być późniejsza niż 'Do'.";
+      msgErr.style.display = "block";
+      return;
+    }
+
+    try {
+      const url = `${window.API_BASE}${REPORTS_PATH}?date_from=${encodeURIComponent(from)}&date_to=${encodeURIComponent(to)}`;
+      const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+
+      if (!res.ok) {
+        const text = await res.text().catch(()=> "");
+        throw new Error(`HTTP ${res.status} — ${text || "błąd pobierania"}`);
+      }
+
+      function formatDate(d) {
+  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+}
+
+document.getElementById("preset-today").addEventListener("click", () => {
+  const today = new Date();
+  const yyyyMmDd = formatDate(today);
+  document.getElementById("date_from").value = yyyyMmDd;
+  document.getElementById("date_to").value   = yyyyMmDd;
+});
+
+document.getElementById("preset-week").addEventListener("click", () => {
+  const today = new Date();
+  const weekAgo = new Date();
+  weekAgo.setDate(today.getDate() - 7);
+  document.getElementById("date_from").value = formatDate(weekAgo);
+  document.getElementById("date_to").value   = formatDate(today);
+});
+
+document.getElementById("preset-month").addEventListener("click", () => {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById("date_from").value = formatDate(firstDay);
+  document.getElementById("date_to").value   = formatDate(today);
+});
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `raport_rezerwacji_${from}_${to}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error(err);
+      msgErr.textContent = "Nie udało się pobrać raportu: " + err.message;
+      msgErr.style.display = "block";
+    }
+  });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,36 @@
+JSON REGISTER
+
+{
+  "email": "876567@student.san.edu.pl",
+  "password": "haslodotestu123",
+  "first_name": "Marian",
+  "last_name": "Paździoch"
+}
+
+{
+  "email": "Fkiepski@san.edu.pl",
+  "password": "haslorazdwatri",
+  "first_name": "Ferdynand",
+  "last_name": "Kiepski"
+}
+
+{
+  "email": "lboski@san.edu.pl",
+  "password": "haslorazdwatri",
+  "first_name": "Ludwik",
+  "last_name": "Boski"
+}
+
+{
+  "email": "testowyadmin@san.edu.pl",
+  "password": "haslorazdwatri",
+  "first_name": "Jan",
+  "last_name": "Kowalski"
+}
+
+{
+  "email": "261136@student.san.edu.pl",
+  "password": "haslorazdwatri",
+  "first_name": "Kazimiera",
+  "last_name": "Solejuk"
+}
