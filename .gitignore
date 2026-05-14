@@ -33,6 +33,8 @@ vold_files/
 *.bak
 *.bak2
 *.bak3
+*.mdf
+*.ldf
 # --- FastAPI / ogólne artefakty ---
 dist/
 build/
@@ -52,6 +54,9 @@ frontend/staticfiles/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+
 
 # --- Raporty/eksport ---
 # reports/tmp/
