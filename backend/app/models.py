@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Unicode, Boolean, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 from enum import IntEnum
 

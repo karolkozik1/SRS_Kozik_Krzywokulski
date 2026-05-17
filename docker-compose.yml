@@ -29,6 +29,18 @@ services:
       db:
         condition: service_healthy
 
+  backend-tests:
+    build:
+      context: ./backend
+    container_name: room_reservation_backend_tests
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    command: python -m pytest tests --cov=app
+    depends_on:
+      - backend
+
   frontend:
     build:
       context: ./frontend
