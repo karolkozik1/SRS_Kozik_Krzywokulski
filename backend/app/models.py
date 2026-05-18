@@ -28,7 +28,7 @@ class Room(Base):
     __tablename__ = "Rooms"
 
     id = Column("ID", Integer, primary_key=True, index=True)
-    room_number = Column("RoomNumber", Unicode(50), nullable=False)
+    room_number = Column("RoomNumber", Unicode(10), nullable=False)
     building_id = Column("BuildingID", Integer, ForeignKey("Buildings.ID"), nullable=False)
     floor = Column("Floor", Integer, nullable=False)
     capacity = Column("Capacity", Integer, nullable=False)

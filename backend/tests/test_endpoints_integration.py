@@ -15,6 +15,14 @@ client = TestClient(app)
 def _unique(value: str) -> str:
     return f"{value}_{uuid4().hex[:8]}"
 
+def _unique_room_number(prefix: str = "T") -> str:
+    """
+    Krótki numer sali do testów integracyjnych.
+
+    W przywróconej bazie danych kolumna Rooms.RoomNumber ma krótszy limit
+    numer sali nie powinien przekraczać 10 znaków.
+    """
+    return f"{prefix}{uuid4().hex[:8]}"[:10]
 
 @pytest.fixture()
 def db():
@@ -141,7 +149,7 @@ def _create_test_room(db, capacity=30):
     accessibility = _get_or_create_accessibility(db)
 
     room = models.Room(
-        room_number=_unique("TEST_ROOM"),
+        room_number=_unique_room_number("T"),
         building_id=building.id,
         floor=1,
         capacity=capacity,
@@ -184,7 +192,7 @@ def test_rooms_create_get_list_and_search_endpoints(db, admin_user):
     accessibility = _get_or_create_accessibility(db)
 
     payload = {
-        "room_number": _unique("SALA"),
+        "room_number": _unique_room_number("S"),
         "building_id": building.id,
         "floor": 2,
         "capacity": 40,
@@ -234,7 +242,7 @@ def test_rooms_duplicate_create_returns_409(db, admin_user):
     room_type = _get_or_create_room_type(db)
     accessibility = _get_or_create_accessibility(db)
 
-    room_number = _unique("DUPLIKAT")
+    room_number = _unique("D")
 
     payload = {
         "room_number": room_number,

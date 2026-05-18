@@ -52,5 +52,20 @@ services:
     depends_on:
       - backend
 
+  frontend-tests:
+    build:
+      context: ./frontend
+    container_name: room_reservation_frontend_tests
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+      BACKEND_URL: http://backend:8000
+    command: python manage.py test ui
+    depends_on:
+      - backend
+    profiles:
+      - tests
+
 volumes:
   sqlserver_data:
