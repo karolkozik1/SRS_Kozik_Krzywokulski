@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from app.database import engine, init_db
+from app.database import engine, init_db, SessionLocal
 from app.routers import users, rooms, reservations, equipment, room_equipment, reports
 from app.scheduler import start_scheduler, stop_scheduler
+from datetime import datetime
+from app import models
 
 app = FastAPI(debug=True, title="System Rezerwacji Sal", version="0.2.0")
 
@@ -33,23 +35,63 @@ def root():
 
 @app.get("/health")
 def health_check():
+    started_at = datetime.now()
+
+    result = {
+        "status": "ok",
+        "backend": {
+            "status": "running",
+            "service": "FastAPI",
+            "version": app.version,
+        },
+        "database": {
+            "status": "unknown",
+            "connected": False,
+        },
+        "statistics": {
+            "users_count": None,
+            "rooms_count": None,
+            "reservations_count": None,
+            "active_reservations_count": None,
+        },
+        "checked_at": started_at.isoformat(),
+        "response_time_ms": None,
+    }
+
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
 
-        return {
-            "status": "ok",
-            "backend": "running",
-            "database": "connected"
-        }
+        result["database"]["status"] = "connected"
+        result["database"]["connected"] = True
+
+        db = SessionLocal()
+        try:
+            result["statistics"]["users_count"] = db.query(models.User).count()
+            result["statistics"]["rooms_count"] = db.query(models.Room).count()
+            result["statistics"]["reservations_count"] = db.query(models.Reservation).count()
+            result["statistics"]["active_reservations_count"] = (
+                db.query(models.Reservation)
+                .filter(models.Reservation.reservation_status_id == models.ResStatus.SCHEDULED)
+                .count()
+            )
+        finally:
+            db.close()
 
     except Exception as error:
-        return {
-            "status": "error",
-            "backend": "running",
-            "database": "disconnected",
-            "details": str(error)
-        }
+        result["status"] = "error"
+        result["database"]["status"] = "disconnected"
+        result["database"]["connected"] = False
+        result["error"] = str(error)
+
+    finished_at = datetime.now()
+    result["response_time_ms"] = round(
+        (finished_at - started_at).total_seconds() * 1000,
+        2
+    )
+
+    return result
+
 
 @app.on_event("startup")
 def _startup():

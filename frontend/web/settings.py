@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()  # wczyta .env z katalogu frontend/
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-9m(h5)xyviz^%*@gbd@ja^n1kgp=vm%a37-u4&pv0q^48#hb#-")  # ← na produkcji ustaw w .env
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
 DEBUG = True
 ALLOWED_HOSTS: list[str] = []
 

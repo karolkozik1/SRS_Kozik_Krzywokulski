@@ -82,3 +82,31 @@ def reservations_list_page(request):
 
 def reports_page(request):
     return render(request, "reports.html", _ctx(request))
+
+
+def system_health_page(request):
+    health_data = None
+    error = None
+
+    try:
+        response = requests.get(
+            f"{settings.BACKEND_URL}/health",
+            timeout=5
+        )
+
+        if response.status_code == 200:
+            health_data = response.json()
+        else:
+            error = f"Backend zwrócił kod HTTP {response.status_code}"
+
+    except requests.RequestException as exc:
+        error = f"Nie udało się połączyć z backendem: {exc}"
+
+    return render(
+        request,
+        "system_health.html",
+        {
+            "health": health_data,
+            "error": error,
+        }
+    )

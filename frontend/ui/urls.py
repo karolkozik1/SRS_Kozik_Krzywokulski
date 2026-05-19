@@ -19,4 +19,6 @@ urlpatterns = [
     path("register/", views.register_page, name="register"),
     path("reserve/", views.reserve_page, name="reserve"),
     path("reports/", views.reports_page, name="reports"),
+    
+    path("system-health/", views.system_health_page, name="system_health"),
 ]

@@ -28,44 +28,39 @@ class FrontendViewTests(TestCase):
         self.assertContains(response, "<form", html=False)
         self.assertContains(response, "password", html=False)
 
-    @patch("requests.get")
-    def test_rooms_page_returns_200(self, mock_get):
-        """
-        Test widoku listy sal.
-
-        Odpowiedź backendu FastAPI jest mockowana, żeby test
-        frontendu nie zależał od aktualnego stanu backendu i bazy danych.
-        """
-
+    @patch("ui.views.requests.get")
+    def test_system_health_page_returns_200(self, mock_get):
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = [
-            {
-                "id": 1,
-                "room_number": "101",
-                "building_id": 1,
-                "floor": 1,
-                "capacity": 30,
-                "room_type_id": 1,
-                "accessibility_id": 1,
+        mock_response.json.return_value = {
+            "status": "ok",
+            "backend": {
+                "status": "running",
+                "service": "FastAPI",
+                "version": "0.2.0",
             },
-            {
-                "id": 2,
-                "room_number": "102",
-                "building_id": 1,
-                "floor": 1,
-                "capacity": 25,
-                "room_type_id": 1,
-                "accessibility_id": 1,
+            "database": {
+                "status": "connected",
+                "connected": True,
             },
-        ]
+            "statistics": {
+                "users_count": 10,
+                "rooms_count": 20,
+                "reservations_count": 30,
+                "active_reservations_count": 5,
+            },
+            "checked_at": "2026-05-18T12:00:00",
+            "response_time_ms": 15.5,
+        }
 
         mock_get.return_value = mock_response
 
-        response = self.client.get(reverse("rooms"))
+        response = self.client.get(reverse("system_health"))
 
         self.assertEqual(response.status_code, 200)
-        
+        self.assertContains(response, "Dashboard stanu systemu")
+        self.assertContains(response, "System działa poprawnie")
+            
 
 class AdditionalPageTests(TestCase):
     def test_register_page_returns_200(self):
@@ -82,3 +77,5 @@ class AdditionalPageTests(TestCase):
         response = self.client.get(reverse("reports"))
 
         self.assertEqual(response.status_code, 200)
+        
+        

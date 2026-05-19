@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Stan systemu</title>
+    <meta http-equiv="refresh" content="30">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background-color: #f5f5f5;
+            color: #222;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .status-ok {
+            color: #0a7a28;
+            font-weight: bold;
+        }
+
+        .status-error {
+            color: #b00020;
+            font-weight: bold;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .metric {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .label {
+            color: #555;
+        }
+
+        .error-box {
+            background: #ffe8e8;
+            color: #900;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e0aaaa;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Dashboard stanu systemu</h1>
+
+    {% if error %}
+        <div class="error-box">
+            <strong>Błąd:</strong> {{ error }}
+        </div>
+    {% endif %}
+
+    {% if health %}
+        <div class="card">
+            <h2>Status ogólny</h2>
+
+            {% if health.status == "ok" %}
+                <p class="status-ok">System działa poprawnie</p>
+            {% else %}
+                <p class="status-error">Wykryto problem z systemem</p>
+            {% endif %}
+
+            <p><strong>Czas sprawdzenia:</strong> {{ health.checked_at }}</p>
+            <p><strong>Czas odpowiedzi:</strong> {{ health.response_time_ms }} ms</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Backend</h2>
+                <p><strong>Usługa:</strong> {{ health.backend.service }}</p>
+                <p><strong>Wersja:</strong> {{ health.backend.version }}</p>
+                <p><strong>Status:</strong> {{ health.backend.status }}</p>
+            </div>
+
+            <div class="card">
+                <h2>Baza danych</h2>
+                {% if health.database.connected %}
+                    <p class="status-ok">Połączono z bazą danych</p>
+                {% else %}
+                    <p class="status-error">Brak połączenia z bazą danych</p>
+                {% endif %}
+                <p><strong>Status:</strong> {{ health.database.status }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Statystyki systemu</h2>
+
+            <div class="grid">
+                <div>
+                    <div class="metric">{{ health.statistics.users_count }}</div>
+                    <div class="label">Użytkownicy</div>
+                </div>
+
+                <div>
+                    <div class="metric">{{ health.statistics.rooms_count }}</div>
+                    <div class="label">Sale</div>
+                </div>
+
+                <div>
+                    <div class="metric">{{ health.statistics.reservations_count }}</div>
+                    <div class="label">Wszystkie rezerwacje</div>
+                </div>
+
+                <div>
+                    <div class="metric">{{ health.statistics.active_reservations_count }}</div>
+                    <div class="label">Aktywne rezerwacje</div>
+                </div>
+            </div>
+        </div>
+
+        {% if health.error %}
+            <div class="error-box">
+                <strong>Szczegóły błędu:</strong> {{ health.error }}
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+</body>
+</html>
