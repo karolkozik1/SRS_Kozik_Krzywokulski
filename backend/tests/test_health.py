@@ -26,6 +26,12 @@ def test_health_endpoint_returns_status():
     assert "connected" in data["database"]
     assert "status" in data["database"]
 
+    assert "scheduler" in data
+    assert isinstance(data["scheduler"], dict)
+    assert isinstance(data["scheduler"]["running"], bool)
+    assert "job" in data["scheduler"]
+    assert "interval" in data["scheduler"]
+
     assert "statistics" in data
     assert isinstance(data["statistics"], dict)
 

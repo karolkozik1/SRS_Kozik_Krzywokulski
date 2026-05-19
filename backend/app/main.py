@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.database import engine, init_db, SessionLocal
 from app.routers import users, rooms, reservations, equipment, room_equipment, reports
-from app.scheduler import start_scheduler, stop_scheduler
+from app.scheduler import is_scheduler_running, start_scheduler, stop_scheduler
 from datetime import datetime
 from app import models
 
@@ -47,6 +47,11 @@ def health_check():
         "database": {
             "status": "unknown",
             "connected": False,
+        },
+        "scheduler": {
+            "running": is_scheduler_running(),
+            "job": "update_reservation_statuses",
+        "interval": "1 minute"
         },
         "statistics": {
             "users_count": None,
