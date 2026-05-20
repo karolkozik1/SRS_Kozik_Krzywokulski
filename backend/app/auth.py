@@ -18,7 +18,7 @@ except Exception:
     pass
 
 # --- KONFIG z ENV (z bezpiecznymi defaultami DEV) ---
-SECRET_KEY = os.getenv("SECRET_KEY", "2Kox3R19Qsom3MhQNnMFww02xDP3MOLglHjQijffQGgTlG8KDO0EcyDJ1Cp_R7HOQEGBjo9BuBjYRFYi0HmNcw")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
